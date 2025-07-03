@@ -29,9 +29,15 @@ This repository provides tools to extend [CRISPR-Sheriff](https://github.com/pin
 - **Strand-specific scoring**: Tests both DNA strands for best alignment
 - **Integration-ready**: Outputs merge with Sheriff's results and other off-target predictors
 
-The workflow consists of two main scripts:
-1. `edit_sites2loose.py` - Converts Sheriff's BED output to the required format
-2. `pairwise_homology.py` - Performs guide-to-genome alignment and scoring
+⚠️ **IMPORTANT**: This pipeline requires Sheriff to be run in **relaxed mode** to capture all potential sites:
+```bash
+sheriff call -i dedup.bam --min_cells 1 --no_blacklist -o loose.tsv
+```
+
+The workflow consists of three main scripts:
+1. `sheriff2homology.py` - Converts Sheriff's relaxed TSV output to candidate format
+2. `edit_sites2loose.py` - Alternative converter for Sheriff's BED output (legacy)
+3. `pairwise_homology.py` - Performs guide-to-genome alignment and scoring
 
 ---
 
@@ -42,7 +48,8 @@ homology-extension/
 ├── environment.yml          # Conda environment specification
 ├── README.md               # This file
 ├── scripts/
-│   ├── edit_sites2loose.py # Sheriff BED → loose.tsv converter
+│   ├── sheriff2homology.py # Sheriff TSV → candidates.tsv (PRIMARY)
+│   ├── edit_sites2loose.py # Sheriff BED → loose.tsv (legacy)
 │   └── pairwise_homology.py # Main homology scoring script
 ├── data/                   # Example data files
 │   ├── guides.example.fa
@@ -82,15 +89,18 @@ bash tests/smoke_test.sh
 ## Quick Start
 
 ```bash
-# 1. Convert Sheriff output to required format
-python scripts/edit_sites2loose.py \
-    --bed sheriff_results/edit_sites.bed \
-    --out loose.tsv
+# 1. Run Sheriff in RELAXED mode (critical!)
+sheriff call -i dedup.bam --min_cells 1 --no_blacklist -o loose.tsv
 
-# 2. Score homology for your guides
+# 2. Convert Sheriff output to candidates format
+python scripts/sheriff2homology.py \
+    --sheriff loose.tsv \
+    --out candidates.tsv
+
+# 3. Score homology for your guides
 python scripts/pairwise_homology.py \
     --guides guides.fa \
-    --candidates loose.tsv \
+    --candidates candidates.tsv \
     --fasta /path/to/hg38.fa \
     --out homology_scores.tsv
 ```
@@ -99,30 +109,48 @@ python scripts/pairwise_homology.py \
 
 ## Step-by-Step Tutorial
 
-### Step 0: Run the upstream Sheriff workflow
+### Step 0: Run Sheriff in RELAXED mode
 
-Before using these tools, you need Sheriff's output files. Sheriff identifies potential CRISPR edit sites from sequencing data.
+Before using these tools, you need Sheriff's output files. **CRITICAL**: Run Sheriff in relaxed mode to capture all potential sites for homology scoring.
+
+#### Sheriff Modes Explained
+
+| Mode | Command | Use Case |
+|------|---------|----------|
+| **Strict** (default) | `sheriff call -i dedup.bam -o strict.tsv` | Publication figures; drops low-cell-count events |
+| **Relaxed** ✅ | `sheriff call -i dedup.bam --min_cells 1 --no_blacklist -o loose.tsv` | Homology scoring; keeps ALL sites for re-ranking |
 
 ```bash
-# Example Sheriff command (adjust for your data)
-docker run --rm elementsinteractive/sheriff \
-    patrol --target github://myorg/myrepo \
-    --output-type edit-site-bed > results/edit_sites.bed
+# For homology scoring, ALWAYS use relaxed mode:
+sheriff call -i dedup.bam --min_cells 1 --no_blacklist -o loose.tsv
 ```
 
+Why relaxed mode?
+- `--min_cells 1`: Keeps single-cell events that might be real off-targets
+- `--no_blacklist`: Retains repeat-masked regions for comprehensive scoring
+- We apply our own filtering AFTER attaching homology scores
+
 Sheriff produces:
-- `edit_sites.bed` - All candidate cut sites with ±window
+- `loose.tsv` - All candidate sites (relaxed mode output)
 - `edit_site_info.txt` - Detailed metadata per site
 - Various per-cell edit count files
 
-### Step 1: Convert Sheriff edit-sites to `loose.tsv`
+### Step 1: Convert Sheriff output to candidates format
 
-The `pairwise_homology.py` script expects a specific 5-column format. Use our converter:
+The `pairwise_homology.py` script expects a specific 5-column format. Use the appropriate converter:
 
+#### Option A: From Sheriff TSV (RECOMMENDED)
+```bash
+python scripts/sheriff2homology.py \
+    --sheriff loose.tsv \
+    --out candidates.tsv
+```
+
+#### Option B: From Sheriff BED (legacy workflow)
 ```bash
 python scripts/edit_sites2loose.py \
     --bed results/edit_sites.bed \
-    --out results/loose.tsv
+    --out candidates.tsv
 ```
 
 **What this does:**
