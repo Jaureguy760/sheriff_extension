@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data files (too large for git)
+*.fa
+*.fasta
+*.fai
+*.bed
+*.bam
+*.sam
+*.tsv
+*.csv
+
+# Keep example files
+!data/*.example.*
+!data/test_genome.fa
+!data/guides.example.fa
+
+# Results
+results/
+output/
+tmp/

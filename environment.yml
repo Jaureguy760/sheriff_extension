@@ -1,0 +1,20 @@
+name: sheriff-homology
+channels:
+  - conda-forge
+dependencies:
+  # core scientific stack
+  - python=3.10
+  - pandas
+  - numpy
+  - biopython         # pairwise2 + SeqIO
+  - pyfaidx           # FASTA random access
+  - pysam             # only needed by Sheriff
+  - faiss-cpu         # used by count_t7, harmless otherwise
+  - gtfparse          # Sheriff gene collate
+  - polars
+  - pyranges
+  - tqdm              # nice progress bars
+  - pytest            # for testing
+  # optional: Jupyter for exploration
+  - jupyterlab
+  - ipykernel
